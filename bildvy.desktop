@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Icon=/usr/share/icons/bildvy.png
+Name=Bildvy
+GenericName=Image Viewer
+Exec=bildvy
+Categories=Graphics;GTK;
+Terminal=false
+MimeType=image/bmp;image/gif;image/x-tga;image/x-xbitmap;image/tiff;image/jpeg;image/png;image/jpeg2000;
