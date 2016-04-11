@@ -3,32 +3,30 @@
 // Variables
 bool bImage=false, bFit=false, bCairo=true;
 SortType iSortMode=TimeAZ;
-string sFilePath=NULL, sConfFile;
+char *sFilePath=NULL, *sConfFile;
 cairo_t *crContext;
 cairo_surface_t *crSurface=NULL;
-GdkPixbuf *pbfImage, *pbfIcon;
+GdkPixbuf *pbfImage;
 GdkWindow *windowDraw, *windowScroll;
 GKeyFile *objKeyFile;
 FmFolderView* objPreView=NULL;
-bool (*fFilter)(FmFileInfo* file, void *user_data);
+typedef int (*FmFilter)(struct _FmFileInfo *, void *);
 pGtkWidget frmMain, cntScroll, cntDraw;
 double iScale=1;
 magic_t objMagic=NULL;
 
-bool fFilterReal(FmFileInfo *file, void G_GNUC_UNUSED *user_data){
-	return fm_file_info_is_image(file);}
+bool fFilter(FmFileInfo *file, void G_GNUC_UNUSED *data){
+	return fm_file_info_is_image(file);
+}
 
-FmFolderModel* GetFolderModel(string sPath){
-	FmFolder* folder=NULL;
-	FmFolderModel* model=NULL;
-	
-	folder=fm_folder_from_path_name((const char*)sPath);
-	model=fm_folder_model_new(folder, false);
+FmFolderModel* GetFolderModel(char *sPath){
+	FmFolder* folder=fm_folder_from_path_name((const char*)sPath);
+	FmFolderModel* model=fm_folder_model_new(folder, false);
 	g_object_unref(folder);
-	fFilter=fFilterReal;
-	fm_folder_model_add_filter(model, (int (*)(struct _FmFileInfo *, void *))fFilter, NULL);
+	fm_folder_model_add_filter(model, (FmFilter)fFilter, NULL);
 	fm_folder_model_apply_filters(model);
-	return model;}
+	return model;
+}
 
 G_GNUC_CONST double ScaleCalc(double w1, double h1, double w2, double h2){
 	double iSc1=w1/w2, iSc2=(h1-32)/h2;
@@ -79,18 +77,19 @@ void Expose(void){
 	}
 }
 
-bool OfType(string filepath, string filetype){
-	string sTmp=(string)magic_file(objMagic, (const char*)filepath);
-	return (bool)strstr((const char*)sTmp, (const char*)filetype);}
+bool OfType(char *filepath, char *filetype){
+	char *sTmp=(char*)magic_file(objMagic, (const char*)filepath);
+	return !!strstr((const char*)sTmp, (const char*)filetype);
+}
 
 INLINE void SettingsRead(void){
-	sConfFile=(string)g_build_filename(((char*)g_get_user_config_dir()), "bildvy.conf", NULL);
+	sConfFile=g_build_filename(((char*)g_get_user_config_dir()), "bildvy.conf", NULL);
 	
 	objKeyFile=g_key_file_new();
-	if (!g_key_file_load_from_file(objKeyFile, (const char*)sConfFile, G_K_FLAGS, NULL)){
+	if(!g_key_file_load_from_file(objKeyFile, (const char*)sConfFile, G_K_FLAGS, NULL)){
 		g_printerr("Error: configuration file does not exist.\n");
 		g_file_set_contents((const char*)sConfFile, "\n", -1, NULL);
-		if (!g_key_file_load_from_file(objKeyFile, (const char*)sConfFile, G_K_FLAGS, NULL)){
+		if(!g_key_file_load_from_file(objKeyFile, (const char*)sConfFile, G_K_FLAGS, NULL)){
 			g_printerr("Error: error while loading configurations file.\n");
 			exit(EXIT_FAILURE);
 		}
@@ -115,7 +114,7 @@ void SettingsWrite(void){
 }
 
 void SortRefresh(void){
-	FmFolderModel* objModel=GetFolderModel((string)g_path_get_dirname((const char*)sFilePath));
+	FmFolderModel* objModel=GetFolderModel(g_path_get_dirname((const char*)sFilePath));
 	fm_folder_view_set_model(objPreView, objModel);
 	
 	switch (iSortMode){
@@ -129,14 +128,15 @@ void SortRefresh(void){
 	gtk_widget_show_all(GTK_WIDGET(objPreView));
 }
 
-bool frmMainDelete(pGtkWidget G_GNUC_UNUSED widget, GdkEvent G_GNUC_UNUSED *event, void G_GNUC_UNUSED *user_data){
+bool frmMainDelete(pGtkWidget G_GNUC_UNUSED widget, GdkEvent G_GNUC_UNUSED *event, void G_GNUC_UNUSED *data){
 	SettingsWrite();
-	return false;}
+	return false;
+}
 
 void FileOpen(bool bChf){
-	if (OfType(sFilePath, (string)"image")){
+	if (OfType(sFilePath, (char *)"image")){
 		if (!bCairo) g_object_unref(G_OBJECT(pbfImage));
-		if(OfType(sFilePath, (string)"PNG")){
+		if(OfType(sFilePath, (char *)"PNG")){
 			bCairo=true;
 			cairo_surface_destroy(crSurface);
 			crSurface=cairo_image_surface_create_from_png((const char*)sFilePath);
@@ -164,91 +164,92 @@ void mmiOpenAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* user
 	iResponse=gtk_dialog_run(GTK_DIALOG(dlgFileChooser));
 	if (iResponse==0){
 		g_free(sFilePath);
-		sFilePath=(string)gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dlgFileChooser));
+		sFilePath=gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dlgFileChooser));
 		FileOpen(true);
 	}
 	gtk_widget_destroy(dlgFileChooser);
 }
 
-bool mmiQuitAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* user_data){
+bool mmiQuitAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* data){
 	SettingsWrite();
 	gtk_main_quit();
 	return false;}
 
-void mmiZoomOutAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* user_data){
+void mmiZoomOutAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* data){
 	bFit=false;
 	iScale=iScale-0.1;
 	Expose();
 }
 
-void mmiZoomInAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* user_data){
+void mmiZoomInAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* data){
 	bFit=false;
 	iScale=iScale+0.1;
 	Expose();
 }
 
-void mmiZoom100Action(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* user_data){
+void mmiZoom100Action(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* data){
 	bFit=false;
 	iScale=1.0;
 	Expose();
 }
 
-void mmiZoomFitAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* user_data){
+void mmiZoomFitAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* data){
 	bFit=true;
 	iScale=1.0;
 	Expose();
 }
 
-void mmiNameAZAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* user_data){
+void mmiNameAZAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* data){
 	iSortMode=NameAZ;
 	SortRefresh();
 }
 
-void mmiNameZAAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* user_data){
+void mmiNameZAAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* data){
 	iSortMode=NameZA;
 	SortRefresh();
 }
 
-void mmiTimeAZAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* user_data){
+void mmiTimeAZAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* data){
 	iSortMode=TimeAZ;
 	SortRefresh();
 }
 
-void mmiTimeZAAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* user_data){
+void mmiTimeZAAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* data){
 	iSortMode=TimeZA;
 	SortRefresh();
 }
 
-void mmiBoutAction(GtkMenuItem G_GNUC_UNUSED *menuitem, G_GNUC_UNUSED void* user_data){
+void mmiBoutAction(GtkMenuItem G_GNUC_UNUSED *menuitem, void* data){
 	GtkWidget *dlgBout;
 	
 	dlgBout=gtk_about_dialog_new();
+	gtk_window_set_transient_for(GTK_WINDOW(dlgBout), GTK_WINDOW(data));
 	gtk_about_dialog_set_program_name(GTK_ABOUT_DIALOG(dlgBout), "Bildvy");
-	gtk_about_dialog_set_version(GTK_ABOUT_DIALOG(dlgBout), "4.0.0.427");
+	gtk_about_dialog_set_version(GTK_ABOUT_DIALOG(dlgBout), "4.0.0.450");
 	gtk_about_dialog_set_copyright(GTK_ABOUT_DIALOG(dlgBout), "Copyright 2012-2016 Sokolov N. P. <0xE4524FFE@gmail.com>");
 	gtk_about_dialog_set_license_type(GTK_ABOUT_DIALOG(dlgBout), GTK_LICENSE_CUSTOM);
-	gtk_about_dialog_set_website(GTK_ABOUT_DIALOG(dlgBout), "https://github.com/0xe4524ffe/bildvy.git");
-	gtk_about_dialog_set_comments(GTK_ABOUT_DIALOG(dlgBout), "!!!By using this software you accept FLWP EULA!!!\nYou can find FLWP EULA at https://github.com/0xe4524ffe/FLWP-EULA.git if wasn't included.\n");
-	gtk_about_dialog_set_logo(GTK_ABOUT_DIALOG(dlgBout), pbfIcon);
+	gtk_about_dialog_set_website(GTK_ABOUT_DIALOG(dlgBout), "https://github.com/0xe4524ffe/bildvy");
+	gtk_about_dialog_set_comments(GTK_ABOUT_DIALOG(dlgBout), "By using this software you accept FLWP EULA\nYou can find FLWP EULA at https://github.com/0xe4524ffe/FLWP-EULA if wasn't included\n");
+	gtk_about_dialog_set_logo_icon_name(GTK_ABOUT_DIALOG(dlgBout), NULL);
 	g_signal_connect_object(G_OBJECT(dlgBout), "response", G_CALLBACK(gtk_widget_destroy), G_OBJECT(dlgBout), G_CONNECT_AFTER);
 	gtk_widget_show(dlgBout);
 }
 
-void cntDrawDraw(pGtkWidget G_GNUC_UNUSED widget, cairo_t G_GNUC_UNUSED *cr, void G_GNUC_UNUSED *user_data){
+void cntDrawDraw(pGtkWidget G_GNUC_UNUSED widget, cairo_t G_GNUC_UNUSED *cr, void G_GNUC_UNUSED *data){
 	Expose();
 }
 
-void objPreViewSelect(FmFolderView G_GNUC_UNUSED *fv, intptr_t G_GNUC_UNUSED n_sel, void G_GNUC_UNUSED *user_data){
+void objPreViewSelect(FmFolderView G_GNUC_UNUSED *fv, intptr_t G_GNUC_UNUSED n_sel, void G_GNUC_UNUSED *data){
 	FmPathList *list=fm_folder_view_dup_selected_file_paths(objPreView);
 	FmPath *fmpath=FM_PATH(fm_list_peek_head(FM_LIST(list)));
-	sFilePath=(string)fm_path_to_str(fmpath);
+	sFilePath=fm_path_to_str(fmpath);
 	fm_path_list_unref(list);
 	FileOpen(false);
 }
 
 #include "gui.h"
 
-int main(int argc, char **argv){
+int main(int argc, char *argv[]){
 
 	objMagic=magic_open(MAGIC_MIME); //poff! some magic here
 	magic_load(objMagic, NULL);
@@ -261,12 +262,13 @@ int main(int argc, char **argv){
 	SettingsRead();
 	
 	if (argc>1){
-		sFilePath=(string)argv[1];
-		if (!(g_path_is_absolute((const char*)sFilePath))) sFilePath=(string)g_build_filename(g_get_current_dir(), argv[1], NULL);
+		sFilePath=argv[1];
+		if (!(g_path_is_absolute((const char*)sFilePath))) sFilePath=g_build_filename(g_get_current_dir(), argv[1], NULL);
 		FileOpen(true);
 	}
 	
 	gtk_main();
 	fm_gtk_finalize();
 	magic_close(objMagic);
-	return EXIT_SUCCESS;}
+	return EXIT_SUCCESS;
+}

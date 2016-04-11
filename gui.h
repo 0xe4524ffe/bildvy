@@ -10,8 +10,11 @@ INLINE void GUIBuild(void){
 	//build gui
 	frmMain=gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_title(GTK_WINDOW(frmMain), "Image Viewer");
-	pbfIcon=gdk_pixbuf_new_from_file("/usr/share/icons/bildvy.png", NULL);
-	gtk_window_set_icon(GTK_WINDOW(frmMain), pbfIcon);
+	if(gtk_icon_theme_has_icon(gtk_icon_theme_get_default(), "multimedia-photo-viewer")){
+		gtk_window_set_default_icon_name("multimedia-photo-viewer");
+	} else {
+		gtk_window_set_default_icon_name("bildvy");
+	}
 	mmbMenu=gtk_menu_bar_new();
 	mmiFile=gtk_menu_item_new_with_mnemonic("_File");
 	gtk_container_add(GTK_CONTAINER(mmbMenu), mmiFile);
@@ -79,7 +82,7 @@ INLINE void GUIBuild(void){
 	g_signal_connect(G_OBJECT(mmiNameZA), "activate", G_CALLBACK(mmiNameZAAction), NULL);
 	g_signal_connect(G_OBJECT(mmiTimeAZ), "activate", G_CALLBACK(mmiTimeAZAction), NULL);
 	g_signal_connect(G_OBJECT(mmiTimeZA), "activate", G_CALLBACK(mmiTimeZAAction), NULL);
-	g_signal_connect(G_OBJECT(mmiBout), "activate", G_CALLBACK(mmiBoutAction), NULL);
+	g_signal_connect(G_OBJECT(mmiBout), "activate", G_CALLBACK(mmiBoutAction), frmMain);
 	g_signal_connect(G_OBJECT(cntDraw), "draw", G_CALLBACK(cntDrawDraw), NULL);
 	g_signal_connect(G_OBJECT(objPreView), "sel-changed", G_CALLBACK(objPreViewSelect), NULL);
 }
